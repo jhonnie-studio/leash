@@ -155,6 +155,19 @@ app.post('/api/reset', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`Leash on ${PUBLIC_URL} — Gemini: ${geminiEnabled ? 'live' : 'offline fallback'}, PayPal: ${paypal.paypalEnabled ? 'sandbox' : 'mock'}`);
+// Latest run, so a page reload still shows what the agent just did.
+app.get('/api/agent/last', (_req, res) => {
+  const runId = state.audit[0]?.runId;
+  res.json({ runId, steps: runId ? state.audit.filter((r) => r.runId === runId).reverse() : [] });
 });
+
+app.get('/healthz', (_req, res) => res.json({ ok: true }));
+
+export { app, state };
+
+// Start listening only when run directly (tests import the app instead).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  app.listen(PORT, () => {
+    console.log(`Leash on ${PUBLIC_URL} — Gemini: ${geminiEnabled ? 'live' : 'offline fallback'}, PayPal: ${paypal.paypalEnabled ? 'sandbox' : 'mock'}`);
+  });
+}

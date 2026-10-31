@@ -100,9 +100,10 @@ function stepHtml(s) {
   const badge = s.status === 'pending_approval' && s.approveUrl
     ? `<a class="badge pending_approval" href="${esc(s.approveUrl)}">Review in PayPal →</a>`
     : `<span class="badge ${s.status}">${STATUS_LABEL[s.status] || s.status}</span>`;
+  const agent = s.agentWhy && s.status !== 'no_option' ? `<div class="agent-why">Agent: “${esc(s.agentWhy)}”</div>` : '';
   return `<li class="step ${cls}">
     <div class="icon">${ICONS[s.category] || '•'}</div>
-    <div><div class="title">${esc(s.merchant)}<span class="amt">${s.amount ? money(s.amount) : ''}</span></div><div class="why">${why}</div></div>
+    <div><div class="title">${esc(s.merchant)}<span class="amt">${s.amount ? money(s.amount) : ''}</span></div>${agent}<div class="why">${why}</div></div>
     ${badge}</li>`;
 }
 
@@ -172,5 +173,11 @@ const MESSAGES = {
 for (const [k, map] of Object.entries(MESSAGES)) if (map[params.get(k)]) toast(map[params.get(k)]);
 if (params.toString()) history.replaceState(null, '', '/');
 
+async function restoreLastRun() {
+  const { steps } = await api('/api/agent/last');
+  if (steps.length) $('timeline').innerHTML = steps.map(stepHtml).join('');
+}
+
 refreshStatus();
 refreshAudit();
+restoreLastRun();
