@@ -1,0 +1,16 @@
+{
+  "name": "leash",
+  "version": "0.1.0",
+  "description": "Give your AI agent a PayPal wallet — on a leash. Natural-language spending rules, enforced before every payment.",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
