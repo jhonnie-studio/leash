@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 delete process.env.PAYPAL_CLIENT_ID;
 delete process.env.GEMINI_API_KEY;
+process.env.STATE_FILE = '';
 const { app, state } = await import('../src/server.js');
 
 let server;

@@ -1,5 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { evaluate, sanitizePolicy } from './policy.js';
 import { compileRules, rankOptions, geminiEnabled } from './gemini.js';
 import { TRIPS, toPurchase } from './inventory.js';
@@ -18,8 +20,29 @@ const state = {
   audit: [],
 };
 
+// Persist the demo session to disk so a restart or redeploy doesn't drop the
+// connected wallet. Set STATE_FILE="" to disable (tests do).
+const STATE_FILE = process.env.STATE_FILE ?? new URL('../data/state.json', import.meta.url).pathname;
+if (STATE_FILE && existsSync(STATE_FILE)) {
+  try {
+    Object.assign(state, JSON.parse(readFileSync(STATE_FILE, 'utf8')));
+  } catch (err) {
+    console.warn('[state] could not load saved state:', err.message);
+  }
+}
+function save() {
+  if (!STATE_FILE) return;
+  mkdirSync(dirname(STATE_FILE), { recursive: true });
+  writeFileSync(STATE_FILE, JSON.stringify(state));
+}
+
 const app = express();
 app.use(express.json({ limit: '50kb' }));
+// Save after every request that can change state.
+app.use((req, res, next) => {
+  if (req.method === 'POST' || /^\/(wallet|approve)\//.test(req.path)) res.on('finish', save);
+  next();
+});
 app.use(express.static(new URL('../public', import.meta.url).pathname));
 
 const log = (entry) => {

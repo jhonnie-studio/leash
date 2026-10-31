@@ -76,7 +76,7 @@ Without credentials Leash runs in **mock mode** (fake PayPal IDs, a local rule p
 |---|---|
 | `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` | PayPal **sandbox** REST app with *Save payment methods* enabled |
 | `GEMINI_API_KEY` | Google AI Studio key |
-| `GEMINI_MODEL` | optional, defaults to `gemini-2.5-flash` |
+| `GEMINI_MODEL` | optional, defaults to `gemini-3.8-flash` |
 | `PUBLIC_URL` | where PayPal should redirect back, e.g. `https://leash.onrender.com` |
 
 ```bash
