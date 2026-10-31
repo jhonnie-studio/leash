@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leash</title>
+  <meta name="description" content="Give your AI agent a PayPal wallet — on a leash.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-quartz.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 104 66'%3E%3Ccircle cx='33' cy='33' r='25' fill='none' stroke='%23fff' stroke-width='13'/%3E%3Ccircle cx='71' cy='33' r='25' fill='none' stroke='%2360a5fa' stroke-width='13'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><path d="M12 6v18a8 8 0 0 0 16 0" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="28" cy="10" r="5" fill="none" stroke="var(--accent)" stroke-width="4"/></svg>
+      <div>
+        <h1>Leash</h1>
+        <p>Give your AI agent a PayPal wallet — on a leash.</p>
+      </div>
+    </div>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <main class="grid">
+    <!-- 1. Wallet -->
+    <section class="card" id="step-wallet">
+      <div class="step-head"><span class="num">1</span><h2>Connect the agent's wallet</h2></div>
+      <p class="muted">You approve once in PayPal. The agent gets a vaulted payment token — never your password, never your card.</p>
+      <div class="wallet-row">
+        <button class="btn primary" id="connect">Connect PayPal wallet</button>
+        <span class="wallet-state" id="walletState">Not connected</span>
+      </div>
+      <div class="legend">
+        <h3>Before every payment, Leash decides</h3>
+        <div class="lg allow"><b>Allow</b><span>Inside every rule → charged instantly from the vaulted wallet.</span></div>
+        <div class="lg approval"><b>Ask you</b><span>Allowed, but big → a PayPal checkout link lands with you. Nothing moves until you approve.</span></div>
+        <div class="lg deny"><b>Block</b><span>Breaks a rule → refused with the exact reason, and the agent tries the next option.</span></div>
+        <p class="muted small">Gemini only translates your words into rules. The yes/no is plain, deterministic code — the model can't talk its way past it.</p>
+      </div>
+    </section>
+
+    <!-- 2. Rules -->
+    <section class="card" id="step-rules">
+      <div class="step-head"><span class="num">2</span><h2>Write the rules, in plain English</h2></div>
+      <textarea id="rules" rows="6" spellcheck="false">Never more than $150 per night for hotels.
+No hotels with a cancellation fee.
+Ask me before anything over $300.
+Keep the whole trip under $1200 total.
+No dinners after 10pm.
+No basic economy flights.</textarea>
+      <div class="row">
+        <button class="btn" id="compile">Compile rules with Gemini</button>
+        <span class="muted small" id="compileState"></span>
+      </div>
+      <ul class="rules" id="ruleList"></ul>
+    </section>
+
+    <!-- 3. Agent -->
+    <section class="card wide" id="step-agent">
+      <div class="step-head"><span class="num">3</span><h2>Let the agent book</h2></div>
+      <div class="agent-input">
+        <input id="request" value="Plan my Lisbon trip — I love luxury hotels and amazing food.">
+        <button class="btn primary" id="run">Send the agent</button>
+      </div>
+      <ol class="timeline" id="timeline"><li class="empty">The agent's attempts — and every time the leash pulls it back — will appear here.</li></ol>
+    </section>
+
+    <!-- 4. Audit -->
+    <section class="card wide">
+      <div class="step-head between">
+        <div class="step-head"><span class="num">4</span><h2>Audit log</h2></div>
+        <div class="row tight">
+          <span class="spent" id="spent"></span>
+          <button class="btn ghost small" id="reset">Clear log</button>
+        </div>
+      </div>
+      <div id="audit" class="ag-theme-quartz-dark audit"></div>
+    </section>
+  </main>
+
+  <footer class="foot">Built for the PayPal AI Hackathon · PayPal Sandbox only — no real money moves · <a href="https://github.com/jhonnie-studio/leash" target="_blank" rel="noopener">Source</a></footer>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
