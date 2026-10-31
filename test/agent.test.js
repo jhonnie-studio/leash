@@ -48,6 +48,12 @@ test('full run: compile rules, connect wallet, agent books within the leash', as
   assert.ok(paid <= 1200);
 });
 
+test('a second trip gets its own budget', async () => {
+  const { steps } = await (await post('/api/agent/run', { request: 'Same trip again' })).json();
+  assert.equal(steps.find((s) => s.merchant === 'Tasca do Bairro')?.status, 'paid');
+  assert.ok(!steps.some((s) => /total budget/.test(s.reasons?.[0]?.message || '') && s.category === 'flight'));
+});
+
 test('human approval round-trip captures the order', async () => {
   const pending = state.audit.find((r) => r.status === 'pending_approval');
   const res = await fetch(`${base}/approve/return?token=${pending.orderId}`, { redirect: 'manual' });

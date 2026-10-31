@@ -99,7 +99,8 @@ app.post('/api/agent/run', async (req, res) => {
     for (const id of ranking) {
       const option = options.find((o) => o.id === id);
       const purchase = toPurchase(option, trip);
-      const verdict = evaluate(purchase, state.policy, state.audit);
+      // Each run is one trip: budgets only count this run's spend.
+      const verdict = evaluate(purchase, state.policy, state.audit.filter((r) => r.runId === runId));
       const base = { runId, category, merchant: purchase.merchant, amount: purchase.amount, decision: verdict.decision, reasons: verdict.reasons, agentWhy: why[id] || option.note };
 
       if (verdict.decision === 'deny') {
