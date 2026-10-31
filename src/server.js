@@ -43,10 +43,11 @@ app.post('/api/policy', async (req, res) => {
   const text = String(req.body?.text || '').slice(0, 2000);
   if (!text.trim()) return res.status(400).json({ error: 'Write at least one rule.' });
   try {
-    const compiled = sanitizePolicy(await compileRules(text));
+    const raw = await compileRules(text);
+    const compiled = sanitizePolicy(raw);
     state.policy = compiled;
     state.rulesText = text;
-    res.json(compiled);
+    res.json({ ...compiled, compiledBy: raw.compiledBy });
   } catch (err) {
     console.error(err);
     res.status(502).json({ error: 'Could not compile rules. Try rephrasing.' });

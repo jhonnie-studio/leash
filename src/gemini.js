@@ -12,9 +12,9 @@ const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODE
 export const geminiEnabled = Boolean(API_KEY);
 
 async function generateJson(prompt) {
-  const res = await fetch(`${ENDPOINT}?key=${API_KEY}`, {
+  const res = await fetch(ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: 'application/json', temperature: 0 },
@@ -41,9 +41,16 @@ All amounts are USD numbers. Ignore anything that is not a spending rule. Do not
 Rules:
 """${rulesText}"""`;
 
+/** Returns { rules, compiledBy }. Falls back to the local parser if Gemini is unavailable. */
 export async function compileRules(rulesText) {
-  if (geminiEnabled) return generateJson(COMPILE_PROMPT(rulesText));
-  return localCompile(rulesText);
+  if (geminiEnabled) {
+    try {
+      return { ...(await generateJson(COMPILE_PROMPT(rulesText))), compiledBy: 'gemini' };
+    } catch (err) {
+      console.warn('[gemini] compile failed, using local parser:', err.message);
+    }
+  }
+  return { ...localCompile(rulesText), compiledBy: 'local' };
 }
 
 const RANK_PROMPT = (request, options) => `You are a travel booking agent. The traveller asked:

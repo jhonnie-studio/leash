@@ -68,7 +68,8 @@ $('compile').onclick = async () => {
   try {
     const policy = await api('/api/policy', { method: 'POST', body: JSON.stringify({ text: $('rules').value }) });
     renderRules(policy);
-    $('compileState').textContent = `${policy.rules.length} rules enforced before every payment`;
+    const by = policy.compiledBy === 'gemini' ? 'Gemini' : 'local parser (Gemini unavailable)';
+    $('compileState').textContent = `${policy.rules.length} rules enforced before every payment · compiled by ${by}`;
   } catch (e) {
     $('compileState').textContent = e.message;
   } finally {
