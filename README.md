@@ -50,7 +50,9 @@ Budgets count both paid **and** pending-approval spend, so the agent can't queue
 
 ## Try it
 
-**Live demo:** _link added after deploy_
+**Live demo:** https://leash-dk04.onrender.com
+
+> Free hosting: if the demo has been idle, the first load can take up to a minute while it wakes up. It is a single shared demo session, so you may see someone else's last run; click **Clear log** to start fresh.
 
 1. **Connect wallet** → approve in the PayPal sandbox.
 2. **Compile rules** — the six example rules are pre-filled.
@@ -70,17 +72,19 @@ npm install
 npm start            # http://localhost:3000
 ```
 
+Each Gemini call times out after 8 s and tries the next model; if all fail, Leash uses its local parser for a minute so the demo never hangs. Every compile result says which one was used (`compiledBy`).
+
 Without credentials Leash runs in **mock mode** (fake PayPal IDs, a local rule parser instead of Gemini) so you can explore the whole flow offline. For the real thing, set:
 
 | Variable | Purpose |
 |---|---|
 | `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` | PayPal **sandbox** REST app with *Save payment methods* enabled |
 | `GEMINI_API_KEY` | Google AI Studio key |
-| `GEMINI_MODEL` | optional, defaults to `gemini-3.8-flash` |
+| `GEMINI_MODEL` | optional, defaults to `gemini-3.8-flash`. Comma-separated list = fallbacks tried in order, e.g. `gemini-3.8-flash,gemini-flash-lite-latest` |
 | `PUBLIC_URL` | where PayPal should redirect back, e.g. `https://leash.onrender.com` |
 
 ```bash
-npm test             # 14 tests: policy engine + full agent flow in mock mode
+npm test             # 15 tests: policy engine + full agent flow in mock mode
 ```
 
 **Deploy:** one click with the included [`render.yaml`](render.yaml) Blueprint on Render.
