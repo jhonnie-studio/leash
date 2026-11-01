@@ -6,13 +6,32 @@
 import { RULE_TYPES } from './policy.js';
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// Comma-separated: models are tried in order, so a busy model (503) falls through to the next.
+const MODELS = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').split(',').map((m) => m.trim()).filter(Boolean);
+const TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 8000;
+// After every model fails, skip Gemini for a while so the demo stays fast on the local fallback.
+const COOLDOWN_MS = Number(process.env.GEMINI_COOLDOWN_MS) || 60000;
+let skipUntil = 0;
 
 export const geminiEnabled = Boolean(API_KEY);
 
 async function generateJson(prompt) {
-  const res = await fetch(ENDPOINT, {
+  if (Date.now() < skipUntil) throw new Error('Gemini cooling down after recent failures');
+  const errors = [];
+  for (const model of MODELS) {
+    try {
+      return await callModel(model, prompt);
+    } catch (err) {
+      errors.push(`${model}: ${err.message}`);
+    }
+  }
+  skipUntil = Date.now() + COOLDOWN_MS;
+  throw new Error(errors.join(' | '));
+}
+
+async function callModel(model, prompt) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY },
     body: JSON.stringify({
@@ -20,9 +39,9 @@ async function generateJson(prompt) {
       generationConfig: { responseMimeType: 'application/json', temperature: 0 },
     }),
     // A hung Gemini call must not hang the demo; callers fall back to local logic.
-    signal: AbortSignal.timeout(Number(process.env.GEMINI_TIMEOUT_MS) || 12000),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   return JSON.parse(text);
