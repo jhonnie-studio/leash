@@ -19,6 +19,8 @@ async function generateJson(prompt) {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: 'application/json', temperature: 0 },
     }),
+    // A hung Gemini call must not hang the demo; callers fall back to local logic.
+    signal: AbortSignal.timeout(Number(process.env.GEMINI_TIMEOUT_MS) || 12000),
   });
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
   const data = await res.json();
