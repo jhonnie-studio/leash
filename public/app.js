@@ -32,7 +32,9 @@ async function refreshStatus() {
     <span class="pill ${s.paypal === 'sandbox' ? 'on' : ''}">PayPal <b>${s.paypal}</b></span>
     <span class="pill ${s.walletConnected ? 'on' : ''}">Wallet <b>${s.walletConnected ? 'connected' : 'not connected'}</b></span>`;
   const ws = $('walletState');
-  ws.textContent = s.walletConnected ? '✓ Agent wallet connected (vaulted PayPal token)' : 'Not connected';
+  ws.textContent = s.walletPreloaded
+    ? '✓ Shared sandbox demo wallet connected (vaulted PayPal token)'
+    : s.walletConnected ? '✓ Agent wallet connected (vaulted PayPal token)' : 'Not connected';
   ws.classList.toggle('ok', s.walletConnected);
   $('connect').textContent = s.walletConnected ? 'Reconnect' : 'Connect PayPal wallet';
   if (s.rulesText) $('rules').value = s.rulesText;

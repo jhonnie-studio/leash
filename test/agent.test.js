@@ -30,6 +30,14 @@ test('agent refuses to run without a connected wallet', async () => {
   assert.equal(res.status, 409);
 });
 
+test('agent refuses to pay with no compiled rules (fails closed)', async () => {
+  state.wallet = { paymentTokenId: 'MOCK-VAULT-TEST' };
+  const res = await post('/api/agent/run', { request: 'go' });
+  assert.equal(res.status, 409);
+  assert.equal(state.audit.length, 0);
+  state.wallet = null;
+});
+
 test('full run: compile rules, connect wallet, agent books within the leash', async () => {
   assert.equal((await post('/api/policy', { text: RULES })).status, 200);
   const { approveUrl } = await (await post('/api/wallet/connect')).json();

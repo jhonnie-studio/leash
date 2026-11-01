@@ -30,6 +30,11 @@ if (STATE_FILE && existsSync(STATE_FILE)) {
     console.warn('[state] could not load saved state:', err.message);
   }
 }
+// Optional shared demo wallet: a sandbox vault payment token set on the host,
+// so judges can watch the full flow without their own PayPal sandbox login.
+if (!state.wallet && process.env.DEMO_PAYMENT_TOKEN_ID) {
+  state.wallet = { paymentTokenId: process.env.DEMO_PAYMENT_TOKEN_ID, preloaded: true };
+}
 function save() {
   if (!STATE_FILE) return;
   mkdirSync(dirname(STATE_FILE), { recursive: true });
@@ -56,6 +61,7 @@ app.get('/api/status', (_req, res) => {
     gemini: geminiEnabled ? 'live' : 'offline-fallback',
     paypal: paypal.paypalEnabled ? 'sandbox' : 'mock',
     walletConnected: Boolean(state.wallet),
+    walletPreloaded: Boolean(state.wallet?.preloaded),
     policy: state.policy,
     rulesText: state.rulesText,
     trips: Object.fromEntries(Object.entries(TRIPS).map(([k, t]) => [k, { title: t.title, options: t.options }])),
@@ -109,6 +115,8 @@ app.post('/api/agent/run', async (req, res) => {
   const request = String(req.body?.request || '').slice(0, 1000) || 'Book my trip.';
   if (!trip) return res.status(404).json({ error: 'Unknown trip' });
   if (!state.wallet) return res.status(409).json({ error: 'Connect the PayPal wallet first.' });
+  // Fail closed: an agent with no compiled rules would be allowed to buy anything.
+  if (!state.policy.rules.length) return res.status(409).json({ error: 'Compile your rules first — no leash, no payments.' });
 
   const runId = randomUUID().slice(0, 8);
   const steps = [];

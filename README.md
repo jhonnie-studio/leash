@@ -46,6 +46,8 @@ flowchart LR
 
 Budgets count both paid **and** pending-approval spend, so the agent can't queue up approvals that would blow your cap.
 
+Leash fails closed: with no compiled rules the agent is refused, so it can never pay on an empty policy.
+
 ---
 
 ## Try it
@@ -82,9 +84,10 @@ Without credentials Leash runs in **mock mode** (fake PayPal IDs, a local rule p
 | `GEMINI_API_KEY` | Google AI Studio key |
 | `GEMINI_MODEL` | optional, defaults to `gemini-3.8-flash`. Comma-separated list = fallbacks tried in order, e.g. `gemini-3.8-flash,gemini-flash-lite-latest` |
 | `PUBLIC_URL` | where PayPal should redirect back, e.g. `https://leash.onrender.com` |
+| `DEMO_PAYMENT_TOKEN_ID` | optional: a sandbox vault payment token loaded at startup, so visitors can run the agent without their own PayPal sandbox login |
 
 ```bash
-npm test             # 15 tests: policy engine + full agent flow in mock mode
+npm test             # 16 tests: policy engine + full agent flow in mock mode
 ```
 
 **Deploy:** one click with the included [`render.yaml`](render.yaml) Blueprint on Render.

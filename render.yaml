@@ -17,3 +17,5 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: DEMO_PAYMENT_TOKEN_ID
+        sync: false # optional: sandbox vault token so visitors can run the agent without their own PayPal login
