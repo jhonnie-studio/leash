@@ -57,13 +57,15 @@ function describe(rule) {
   }
 }
 
+let ruleCount = 0;
 function renderRules(policy) {
+  ruleCount = policy?.rules?.length || 0;
   $('ruleList').innerHTML = (policy?.rules || [])
     .map((r, i) => `<li style="animation-delay:${i * 60}ms"><span class="type">${esc(r.type)}</span><span class="src">“${esc(r.source)}”</span><span class="val">${esc(describe(r))}</span></li>`)
     .join('');
 }
 
-$('compile').onclick = async () => {
+async function compile() {
   const btn = $('compile');
   btn.disabled = true;
   $('compileState').textContent = 'Compiling…';
@@ -77,7 +79,8 @@ $('compile').onclick = async () => {
   } finally {
     btn.disabled = false;
   }
-};
+}
+$('compile').onclick = compile;
 
 // --- wallet ------------------------------------------------------------------
 
@@ -116,6 +119,8 @@ $('run').onclick = async () => {
   const tl = $('timeline');
   tl.innerHTML = '<li class="empty">Agent is planning…</li>';
   try {
+    // The server refuses to pay on an empty policy, so compile the rules on screen first.
+    if (!ruleCount) await compile();
     const { steps } = await api('/api/agent/run', { method: 'POST', body: JSON.stringify({ trip: 'lisbon', request: $('request').value }) });
     tl.innerHTML = '';
     // Reveal attempts one by one so you can watch the leash work.
