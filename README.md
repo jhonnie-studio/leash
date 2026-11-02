@@ -48,6 +48,9 @@ Budgets count both paid **and** pending-approval spend, so the agent can't queue
 
 Leash fails closed: with no compiled rules the agent is refused, so it can never pay on an empty policy.
 
+### Audit log (AG Grid Community)
+Every attempt is a row: paid, held for you, or blocked. Rows are colour-coded by decision. A **Your rule** column shows the exact sentence you wrote that drove the decision. Hover a merchant to see the agent's reasoning. A pinned totals row, quick-filter search and **Export CSV** make it a record you can actually hand to someone.
+
 ---
 
 ## Try it

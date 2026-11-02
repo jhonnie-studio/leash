@@ -138,23 +138,36 @@ $('run').onclick = async () => {
 
 // --- audit (AG Grid) ---------------------------------------------------------
 
+const DENY_STATUSES = ['blocked', 'no_option', 'declined', 'failed'];
 const grid = agGrid.createGrid($('audit'), {
   rowData: [],
   getRowId: (p) => p.data.id,
   defaultColDef: { sortable: true, filter: true, resizable: true },
+  tooltipShowDelay: 300,
+  // Colour each row by the decision, so blocked attempts stand out at a glance.
+  rowClassRules: {
+    'row-allow': (p) => p.data?.status === 'paid',
+    'row-approval': (p) => p.data?.status === 'pending_approval',
+    'row-deny': (p) => DENY_STATUSES.includes(p.data?.status),
+  },
   columnDefs: [
-    { field: 'time', headerName: 'Time', width: 110, valueFormatter: (p) => new Date(p.value).toLocaleTimeString() },
-    { field: 'category', width: 110, valueFormatter: (p) => `${ICONS[p.value] || ''} ${p.value}` },
-    { field: 'merchant', flex: 1, minWidth: 170 },
+    { field: 'time', headerName: 'Time', width: 110, valueFormatter: (p) => (p.value ? new Date(p.value).toLocaleTimeString() : '') },
+    { field: 'category', width: 110, valueFormatter: (p) => (p.value ? `${ICONS[p.value] || ''} ${p.value}` : '') },
+    { field: 'merchant', flex: 1, minWidth: 170, tooltipValueGetter: (p) => (p.data?.agentWhy ? `Agent: “${p.data.agentWhy}”` : null) },
     { field: 'amount', width: 110, type: 'numericColumn', valueFormatter: (p) => (p.value ? money(p.value) : '—') },
     {
       field: 'status', width: 150,
-      cellRenderer: (p) => `<span class="badge ${p.value}">${STATUS_LABEL[p.value] || p.value}</span>`,
+      cellRenderer: (p) => (p.value ? `<span class="badge ${p.value}">${STATUS_LABEL[p.value] || p.value}</span>` : ''),
     },
     { headerName: 'Why', flex: 2, minWidth: 240, valueGetter: (p) => p.data.reasons?.[0]?.message || (p.data.status === 'paid' ? 'Within all rules' : '') },
+    // The sentence the user actually wrote, so every decision traces back to their own words.
+    { headerName: 'Your rule', flex: 1.5, minWidth: 200, valueGetter: (p) => (p.data.reasons?.[0]?.source ? `“${p.data.reasons[0].source}”` : ''), tooltipValueGetter: (p) => p.value || null },
     { field: 'orderId', headerName: 'PayPal order', width: 190 },
   ],
 });
+
+$('auditSearch').oninput = (e) => grid.setGridOption('quickFilterText', e.target.value);
+$('exportCsv').onclick = () => grid.exportDataAsCsv({ fileName: `leash-audit-${new Date().toISOString().slice(0, 10)}.csv` });
 
 async function refreshAudit() {
   const rows = await api('/api/audit');
@@ -163,6 +176,9 @@ async function refreshAudit() {
   const pending = rows.filter((r) => r.status === 'pending_approval').reduce((s, r) => s + r.amount, 0);
   const blocked = rows.filter((r) => r.status === 'blocked').length;
   $('spent').innerHTML = rows.length ? `Paid <b>${money(paid)}</b> · Awaiting you <b>${money(pending)}</b> · Blocked <b>${blocked}</b>` : '';
+  grid.setGridOption('pinnedBottomRowData', rows.length
+    ? [{ id: 'total', merchant: `Total paid · ${blocked} blocked`, amount: paid, reasons: [{ message: pending ? `${money(pending)} awaiting your approval` : '' }] }]
+    : []);
 }
 
 $('reset').onclick = async () => {

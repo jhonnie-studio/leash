@@ -129,6 +129,11 @@ a.badge { text-decoration: none; }
 .spent b { color: var(--text); }
 .audit { height: 380px; margin-top: 16px; --ag-background-color: #0d1430; --ag-header-background-color: var(--panel-2); --ag-border-color: var(--line); --ag-font-family: Inter, sans-serif; --ag-font-size: 13px; }
 .audit .ag-cell .badge { display: inline-block; line-height: 1.2; }
+.audit .row-allow { box-shadow: inset 3px 0 0 var(--allow); }
+.audit .row-approval { box-shadow: inset 3px 0 0 var(--approval); }
+.audit .row-deny { box-shadow: inset 3px 0 0 var(--deny); }
+.audit .ag-row-pinned { font-weight: 700; background: var(--panel-2); }
+.search { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12px; width: 160px; }
 
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 8px 16px 28px; }
 .toast {
