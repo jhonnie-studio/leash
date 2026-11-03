@@ -30,7 +30,8 @@ async function refreshStatus() {
   $('pills').innerHTML = `
     <span class="pill ${s.gemini === 'live' ? 'on' : ''}">Gemini <b>${s.gemini === 'live' ? 'live' : 'offline'}</b></span>
     <span class="pill ${s.paypal === 'sandbox' ? 'on' : ''}">PayPal <b>${s.paypal}</b></span>
-    <span class="pill ${s.walletConnected ? 'on' : ''}">Wallet <b>${s.walletConnected ? 'connected' : 'not connected'}</b></span>`;
+    <span class="pill ${s.walletConnected ? 'on' : ''}">Wallet <b>${s.walletConnected ? 'connected' : 'not connected'}</b></span>${s.privateSession ? `
+    <span class="pill on" title="Your rules, wallet and audit log are visible only in this browser">Session <b>private</b></span>` : ''}`;
   const ws = $('walletState');
   ws.textContent = s.walletPreloaded
     ? '✓ Shared sandbox demo wallet connected (vaulted PayPal token)'

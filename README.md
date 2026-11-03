@@ -57,7 +57,7 @@ Every attempt is a row: paid, held for you, or blocked. Rows are colour-coded by
 
 **Live demo:** https://leash-dk04.onrender.com
 
-> Free hosting: if the demo has been idle, the first load can take up to a minute while it wakes up. It is a single shared demo session, so you may see someone else's last run; click **Clear log** to start fresh.
+> Free hosting: if the demo has been idle, the first load can take up to a minute while it wakes up. Each browser gets its own private demo session (a cookie), so your rules, wallet and audit log are visible only to you, even if other people are trying the demo at the same time.
 
 1. **Connect wallet** → approve in the PayPal sandbox.
 2. **Compile rules** — the six example rules are pre-filled.
@@ -114,7 +114,7 @@ test/           node:test suites
 - Per-merchant and per-day limits, and rules that expire.
 - Webhooks (`PAYMENT.CAPTURE.COMPLETED`, disputes) feeding the audit log.
 - A Leash SDK any agent framework can call before it pays.
-- Multi-user persistence (currently a single in-memory demo session).
+- Real user accounts (today each browser gets a private demo session, kept in memory and in a local JSON file).
 
 ## How it was built
 Leash was conceived and directed by **Naif** and built with AI tools: **Claude Code** (code, tests, UI) working alongside **Jhonnie**, an AI agent that handled setup, credentials and deployment. All travel merchants in the demo are fictional.
