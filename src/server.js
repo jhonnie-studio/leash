@@ -159,7 +159,8 @@ app.get('/wallet/return', async (req, res) => {
 
 app.post('/api/agent/run', async (req, res) => {
   const state = req.session;
-  const trip = TRIPS[req.body?.trip || 'lisbon'];
+  const tripKey = String(req.body?.trip || 'lisbon');
+  const trip = Object.hasOwn(TRIPS, tripKey) ? TRIPS[tripKey] : null;
   const request = String(req.body?.request || '').slice(0, 1000) || 'Book my trip.';
   if (!trip) return res.status(404).json({ error: 'Unknown trip' });
   if (!state.wallet) return res.status(409).json({ error: 'Connect the PayPal wallet first.' });

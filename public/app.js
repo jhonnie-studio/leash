@@ -104,9 +104,9 @@ function stepHtml(s) {
     : s.status === 'pending_approval'
       ? `${esc(reason?.message)} → sent to you for approval`
       : `${esc(reason?.message || '')}${reason?.source ? ` <span class="muted">(“${esc(reason.source)}”)</span>` : ''}`;
-  const badge = s.status === 'pending_approval' && s.approveUrl
+  const badge = s.status === 'pending_approval' && /^https:\/\//.test(s.approveUrl || '')
     ? `<a class="badge pending_approval" href="${esc(s.approveUrl)}">Review in PayPal →</a>`
-    : `<span class="badge ${s.status}">${STATUS_LABEL[s.status] || s.status}</span>`;
+    : `<span class="badge ${esc(s.status)}">${esc(STATUS_LABEL[s.status] || s.status)}</span>`;
   const agent = s.agentWhy && s.status !== 'no_option' ? `<div class="agent-why">Agent: “${esc(s.agentWhy)}”</div>` : '';
   return `<li class="step ${cls}">
     <div class="icon">${ICONS[s.category] || '•'}</div>
@@ -158,7 +158,7 @@ const grid = agGrid.createGrid($('audit'), {
     { field: 'amount', width: 110, type: 'numericColumn', valueFormatter: (p) => (p.value ? money(p.value) : '—') },
     {
       field: 'status', width: 150,
-      cellRenderer: (p) => (p.value ? `<span class="badge ${p.value}">${STATUS_LABEL[p.value] || p.value}</span>` : ''),
+      cellRenderer: (p) => (p.value ? `<span class="badge ${esc(p.value)}">${esc(STATUS_LABEL[p.value] || p.value)}</span>` : ''),
     },
     { headerName: 'Why', flex: 2, minWidth: 240, valueGetter: (p) => p.data.reasons?.[0]?.message || (p.data.status === 'paid' ? 'Within all rules' : '') },
     // The sentence the user actually wrote, so every decision traces back to their own words.
