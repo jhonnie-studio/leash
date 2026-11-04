@@ -57,6 +57,8 @@ test('full run: compile rules, connect wallet, agent books within the leash', as
 
   const { steps } = await (await post('/api/agent/run', { request: 'Luxury Lisbon trip' })).json();
   const byMerchant = Object.fromEntries(steps.map((s) => [s.merchant, s.status]));
+  // A listing that tells the agent to ignore its limits is still blocked by code.
+  assert.equal(byMerchant['Grand Tejo Palace'], 'blocked');
   assert.equal(byMerchant['Palácio Azul Hotel'], 'blocked');
   assert.equal(byMerchant['Casa do Rio'], 'blocked');
   assert.equal(byMerchant['Alfama Loft Suites'], 'pending_approval');
