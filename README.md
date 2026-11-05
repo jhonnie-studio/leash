@@ -92,7 +92,7 @@ Without credentials Leash runs in **mock mode** (fake PayPal IDs, a local rule p
 | `DEMO_PAYMENT_TOKEN_ID` | optional: a sandbox vault payment token loaded at startup, so visitors can run the agent without their own PayPal sandbox login |
 
 ```bash
-npm test             # 17 tests: policy engine + full agent flow in mock mode
+npm test             # 20 tests: policy engine, Gemini retry, full agent flow in mock mode
 ```
 
 **Deploy:** one click with the included [`render.yaml`](render.yaml) Blueprint on Render.

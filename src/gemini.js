@@ -11,6 +11,11 @@ const MODELS = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').split(',').map((
 const TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 8000;
 // After every model fails, skip Gemini for a while so the demo stays fast on the local fallback.
 const COOLDOWN_MS = Number(process.env.GEMINI_COOLDOWN_MS) || 60000;
+// A fast 429/5xx ("model is overloaded") is usually gone a second later, so each model gets
+// one quick retry, but only while the whole call is still inside this budget.
+const RETRY_DELAY_MS = Number(process.env.GEMINI_RETRY_DELAY_MS ?? 1000);
+const RETRY_BUDGET_MS = Number(process.env.GEMINI_RETRY_BUDGET_MS) || 6000;
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 let skipUntil = 0;
 
 export const geminiEnabled = Boolean(API_KEY);
@@ -18,11 +23,17 @@ export const geminiEnabled = Boolean(API_KEY);
 async function generateJson(prompt) {
   if (Date.now() < skipUntil) throw new Error('Gemini cooling down after recent failures');
   const errors = [];
+  const started = Date.now();
   for (const model of MODELS) {
-    try {
-      return await callModel(model, prompt);
-    } catch (err) {
-      errors.push(`${model}: ${err.message}`);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await callModel(model, prompt);
+      } catch (err) {
+        errors.push(`${model}: ${err.message}`);
+        const retry = attempt === 0 && RETRYABLE.has(err.status) && Date.now() - started < RETRY_BUDGET_MS;
+        if (!retry) break;
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      }
     }
   }
   skipUntil = Date.now() + COOLDOWN_MS;
@@ -41,7 +52,11 @@ async function callModel(model, prompt) {
     // A hung Gemini call must not hang the demo; callers fall back to local logic.
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) {
+    const err = new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
+  }
   const data = await res.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   return JSON.parse(text);
