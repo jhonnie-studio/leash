@@ -79,7 +79,7 @@ npm install
 npm start            # http://localhost:3000
 ```
 
-Each Gemini call times out after 8 s and tries the next model; if all fail, Leash uses its local parser for a minute so the demo never hangs. Every compile result says which one was used (`compiledBy`).
+Each Gemini call times out after 8 s and tries the next model; if all fail, Leash uses its local parser for a minute so the demo never hangs. Every compile result says which one was used (`compiledBy`). Requests go out with `store: false`, so the rules visitors type are not kept in Gemini request logs.
 
 Without credentials Leash runs in **mock mode** (fake PayPal IDs, a local rule parser instead of Gemini) so you can explore the whole flow offline. For the real thing, set:
 
@@ -92,7 +92,7 @@ Without credentials Leash runs in **mock mode** (fake PayPal IDs, a local rule p
 | `DEMO_PAYMENT_TOKEN_ID` | optional: a sandbox vault payment token loaded at startup, so visitors can run the agent without their own PayPal sandbox login |
 
 ```bash
-npm test             # 20 tests: policy engine, Gemini retry, full agent flow in mock mode
+npm test             # 21 tests: policy engine, Gemini retry and no-logging, full agent flow in mock mode
 ```
 
 **Deploy:** one click with the included [`render.yaml`](render.yaml) Blueprint on Render.

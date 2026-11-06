@@ -48,6 +48,8 @@ async function callModel(model, prompt) {
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: 'application/json', temperature: 0 },
+      // Paid-tier projects created since 26 Oct 2026 log requests by default; visitors' rules stay unlogged.
+      store: false,
     }),
     // A hung Gemini call must not hang the demo; callers fall back to local logic.
     signal: AbortSignal.timeout(TIMEOUT_MS),

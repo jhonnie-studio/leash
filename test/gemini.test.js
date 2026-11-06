@@ -9,11 +9,13 @@ process.env.GEMINI_COOLDOWN_MS = '1';
 const { compileRules } = await import('../src/gemini.js');
 
 const ok = { rules: [{ id: 'r1', type: 'approval_over', source: 'Ask me before anything over $300', amount: 300 }] };
-let calls;
+let calls, bodies;
 const respond = (queue) => {
   calls = [];
-  globalThis.fetch = async (url) => {
+  bodies = [];
+  globalThis.fetch = async (url, init) => {
     calls.push(url.match(/models\/([^:]+)/)[1]);
+    bodies.push(JSON.parse(init.body));
     const status = queue.shift() ?? 200;
     const body = status === 200 ? JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(ok) }] } }] }) : '{"error":"overloaded"}';
     return new Response(body, { status });
@@ -40,4 +42,11 @@ test('a 400 is not retried, and when every model fails the local parser takes ov
   const out = await compileRules('Ask me before anything over $300.');
   assert.equal(out.compiledBy, 'local');
   assert.deepEqual(calls, ['model-a', 'model-b', 'model-b']);
+});
+
+test('every Gemini request opts out of request logging (store: false)', async () => {
+  respond([]);
+  await compileRules('Ask me before anything over $300.');
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].store, false);
 });
