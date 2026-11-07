@@ -216,6 +216,9 @@ $('reset').onclick = async () => {
 
 // --- boot ----------------------------------------------------------------------
 
+// /#judges opens the 2-minute tour (linked from JUDGES.md and the Devpost page).
+if (location.hash === '#judges') $('judges').open = true;
+
 const params = new URLSearchParams(location.search);
 const MESSAGES = {
   wallet: { connected: '✓ Wallet connected — the agent can now pay within your rules', cancelled: 'Wallet connection cancelled', error: 'Wallet connection failed' },

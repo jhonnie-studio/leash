@@ -24,6 +24,21 @@
     <div class="pills" id="pills"></div>
   </header>
 
+  <!-- Short guided path for hackathon judges. Closed by default; /#judges opens it. -->
+  <details class="judges" id="judges">
+    <summary><span class="judges-tag">Judges</span> 2-minute tour <span class="muted">· no PayPal login needed</span></summary>
+    <ol class="judges-steps">
+      <li><b>Nothing to set up.</b> A shared PayPal <b>sandbox</b> wallet is already connected, and this browser gets its own private session.</li>
+      <li><b>Rules.</b> Six example rules are already written in box 2. Change one or write your own, e.g. <i>“Don't let any hotel cost more than $150 a night.”</i> Then press <b>Compile rules with Gemini</b>. Each sentence shows the typed rule it became.</li>
+      <li><b>Press <span class="kbd">Send the agent</span>.</b> Watch it try, get blocked, re-plan and pay.</li>
+      <li><b>The poisoned hotel.</b> <i>Grand Tejo Palace</i> ($420/night) hides text telling AI agents to ignore price limits. The AI may pick it; the code blocks it and quotes <b>your</b> sentence.</li>
+      <li><b>“Ask you”.</b> Click <b>Review in PayPal →</b> on a held item: it opens PayPal's own sandbox checkout. The agent never sees that page and can't approve for you. (Approving needs a sandbox buyer account; Cancel works too and is logged as declined.)</li>
+      <li><b>Press <span class="kbd">Emergency stop</span>, then Send again.</b> Every payment is refused before any rule or PayPal call. Press <b>Resume</b> after.</li>
+      <li><b>Audit log.</b> The <b>Your rule</b> column shows the sentence behind each decision. Try search and <b>Export CSV</b>.</li>
+    </ol>
+    <p class="muted small judges-foot">PayPal Orders v2 + Vault (sandbox, no real money) · Gemini rule compiler · AG Grid audit log · hosted on Render · <a href="https://github.com/jhonnie-studio/leash/blob/main/JUDGES.md" target="_blank" rel="noopener">JUDGES.md</a></p>
+  </details>
+
   <main class="grid">
     <!-- 1. Wallet -->
     <section class="card" id="step-wallet">

@@ -168,3 +168,30 @@ a.badge { text-decoration: none; }
 .halted-banner b { color: var(--deny); }
 .badge.estop_on { background: rgba(248,113,113,.18); color: var(--deny); }
 .badge.estop_off { background: rgba(52,211,153,.16); color: var(--allow); }
+
+/* Judges: 2-minute tour (collapsible, closed by default) */
+.judges { max-width: 1400px; margin: 16px auto 0; padding: 0 32px; font-size: 14px; }
+.judges > summary {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+  font-weight: 600; font-size: 13px; padding: 7px 12px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+}
+.judges > summary::-webkit-details-marker { display: none; }
+.judges > summary::after { content: '▸'; color: var(--muted); transition: transform .15s; }
+.judges[open] > summary::after { transform: rotate(90deg); }
+.judges > summary:hover { background: #1f2a50; }
+.judges > summary:focus-visible { outline: 2px solid rgba(96,165,250,.6); outline-offset: 2px; }
+.judges-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #06122b; background: var(--accent); padding: 2px 7px; border-radius: 6px; }
+.judges-steps {
+  margin: 10px 0 0; padding: 16px 20px 16px 38px; display: grid; gap: 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); line-height: 1.5;
+}
+.judges-steps li::marker { color: var(--accent); font-weight: 700; }
+.judges-steps b { font-weight: 600; }
+.judges-steps i { color: var(--muted); }
+.judges .kbd { font-weight: 700; color: var(--accent); }
+.judges-foot { margin: 8px 4px 0; }
+@media (max-width: 900px) {
+  .judges { padding: 0 16px; }
+  .judges-steps { padding: 14px 14px 14px 32px; }
+}
