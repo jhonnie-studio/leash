@@ -27,9 +27,17 @@ function newSession() {
     wallet: process.env.DEMO_PAYMENT_TOKEN_ID ? { paymentTokenId: process.env.DEMO_PAYMENT_TOKEN_ID, preloaded: true } : null,
     pendingSetup: null,
     audit: [],
+    // Emergency stop: when on, every payment is refused before any rule runs.
+    halted: false,
+    haltedAt: null,
     lastSeen: Date.now(),
   };
 }
+
+const ESTOP_SOURCE = 'Emergency stop';
+const ESTOP_REASON = { ruleId: 'estop', source: ESTOP_SOURCE, message: 'Emergency stop is on: the owner halted all payments' };
+const blockedSinceStop = (s) =>
+  s.halted ? s.audit.filter((r) => r.reasons?.[0]?.ruleId === 'estop' && r.status === 'blocked' && r.time >= s.haltedAt).length : 0;
 
 // Persist sessions to disk so a restart or redeploy doesn't drop them.
 // Set STATE_FILE="" to disable (tests do).
@@ -76,9 +84,9 @@ function sessionMiddleware(req, res, next) {
 function findPending(orderId) {
   for (const s of sessions.values()) {
     const row = s.audit.find((r) => r.orderId === orderId && r.status === 'pending_approval');
-    if (row) return row;
+    if (row) return { row, session: s };
   }
-  return null;
+  return {};
 }
 
 const app = express();
@@ -106,6 +114,9 @@ app.get('/api/status', (req, res) => {
     walletConnected: Boolean(state.wallet),
     walletPreloaded: Boolean(state.wallet?.preloaded),
     privateSession: true,
+    halted: Boolean(state.halted),
+    haltedAt: state.haltedAt,
+    blockedSinceStop: blockedSinceStop(state),
     policy: state.policy,
     rulesText: state.rulesText,
     trips: Object.fromEntries(Object.entries(TRIPS).map(([k, t]) => [k, { title: t.title, options: t.options }])),
@@ -155,6 +166,23 @@ app.get('/wallet/return', async (req, res) => {
   }
 });
 
+// --- emergency stop ----------------------------------------------------------
+
+app.post('/api/estop', (req, res) => {
+  const state = req.session;
+  const on = req.body?.on === true;
+  if (on !== state.halted) {
+    state.halted = on;
+    state.haltedAt = on ? new Date().toISOString() : null;
+    log(state, {
+      category: 'system', merchant: on ? 'Owner pressed emergency stop' : 'Owner resumed', amount: 0,
+      decision: on ? 'deny' : 'allow', status: on ? 'estop_on' : 'estop_off',
+      reasons: [{ ruleId: 'estop', source: ESTOP_SOURCE, message: on ? 'All agent payments halted' : 'Agent payments resumed under your rules' }],
+    });
+  }
+  res.json({ halted: state.halted, haltedAt: state.haltedAt, blockedSinceStop: blockedSinceStop(state) });
+});
+
 // --- the agent ---------------------------------------------------------------
 
 app.post('/api/agent/run', async (req, res) => {
@@ -173,6 +201,12 @@ app.post('/api/agent/run', async (req, res) => {
   for (const category of CATEGORY_ORDER) {
     const options = trip.options.filter((o) => o.category === category);
     if (!options.length) continue;
+    // Emergency stop: refuse the attempt before any rule or PayPal call, and log it.
+    if (state.halted) {
+      const purchase = toPurchase(options[0], trip);
+      steps.push(log(state, { runId, category, merchant: purchase.merchant, amount: purchase.amount, decision: 'deny', status: 'blocked', reasons: [ESTOP_REASON] }));
+      continue;
+    }
     const { ranking, why } = await rankOptions(request, options);
     let settled = false;
 
@@ -212,8 +246,13 @@ app.post('/api/agent/run', async (req, res) => {
 // --- human approval round-trip ----------------------------------------------
 
 app.get('/approve/return', async (req, res) => {
-  const row = findPending(req.query.token);
+  const { row, session } = findPending(req.query.token);
   if (!row) return res.redirect('/?approval=unknown');
+  // While the emergency stop is on, even an approved order is not captured.
+  if (session.halted) {
+    log(session, { runId: row.runId, category: row.category, merchant: row.merchant, amount: row.amount, decision: 'deny', status: 'blocked', orderId: row.orderId, reasons: [ESTOP_REASON] });
+    return res.redirect('/?approval=halted');
+  }
   try {
     const cap = await paypal.captureApprovedOrder(row.orderId);
     Object.assign(row, { status: cap.status === 'COMPLETED' ? 'paid' : 'failed', captureId: cap.captureId, approvedAt: new Date().toISOString() });
@@ -225,7 +264,7 @@ app.get('/approve/return', async (req, res) => {
 });
 
 app.get('/approve/cancel', (req, res) => {
-  const row = findPending(req.query.token);
+  const { row } = findPending(req.query.token);
   if (row) row.status = 'declined';
   res.redirect('/?approval=declined');
 });
@@ -240,7 +279,7 @@ app.post('/api/reset', (req, res) => {
 // Latest run, so a page reload still shows what the agent just did.
 app.get('/api/agent/last', (req, res) => {
   const state = req.session;
-  const runId = state.audit[0]?.runId;
+  const runId = state.audit.find((r) => r.runId)?.runId;
   res.json({ runId, steps: runId ? state.audit.filter((r) => r.runId === runId).reverse() : [] });
 });
 

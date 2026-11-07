@@ -64,6 +64,11 @@ No basic economy flights.</textarea>
       <div class="agent-input">
         <input id="request" value="Plan my Lisbon trip — I love luxury hotels and amazing food.">
         <button class="btn primary" id="run">Send the agent</button>
+        <button class="btn estop" id="estop" title="Halt every payment right now, whatever the rules say">Emergency stop</button>
+      </div>
+      <div class="halted-banner" id="haltedBanner" hidden>
+        <div><b>All payments halted.</b> <span id="haltedInfo">The agent can still plan, but every payment is refused before any rule runs.</span></div>
+        <button class="btn small" id="resume">Resume</button>
       </div>
       <ol class="timeline" id="timeline"><li class="empty">The agent's attempts — and every time the leash pulls it back — will appear here.</li></ol>
     </section>

@@ -10,6 +10,10 @@ const BASE = process.env.PAYPAL_API_BASE || 'https://api-m.sandbox.paypal.com';
 
 export const paypalEnabled = Boolean(CLIENT_ID && CLIENT_SECRET);
 
+// Counts payment calls (charge, approval order, capture) so tests can prove the
+// emergency stop really keeps the agent away from PayPal.
+export const stats = { paymentCalls: 0 };
+
 let cachedToken = null;
 
 async function accessToken() {
@@ -78,6 +82,7 @@ export async function finishWalletSetup(setupTokenId) {
 
 /** Autonomous charge against the vaulted wallet. Only called after the policy engine said "allow". */
 export async function chargeVaulted(purchase, paymentTokenId, requestId) {
+  stats.paymentCalls++;
   if (!paypalEnabled || !paymentTokenId || paymentTokenId.startsWith('MOCK')) {
     return { orderId: mockId('ORDER'), captureId: mockId('CAPTURE'), status: 'COMPLETED', mock: true };
   }
@@ -98,6 +103,7 @@ export async function chargeVaulted(purchase, paymentTokenId, requestId) {
 
 /** Human-in-the-loop: create an order the human approves in PayPal themselves. */
 export async function createApprovalOrder(purchase, returnUrl, cancelUrl, requestId) {
+  stats.paymentCalls++;
   if (!paypalEnabled) {
     const orderId = mockId('ORDER');
     return { orderId, approveUrl: `${returnUrl}?token=${orderId}`, mock: true };
@@ -115,6 +121,7 @@ export async function createApprovalOrder(purchase, returnUrl, cancelUrl, reques
 }
 
 export async function captureApprovedOrder(orderId) {
+  stats.paymentCalls++;
   if (!paypalEnabled || orderId.startsWith('MOCK')) return { captureId: mockId('CAPTURE'), status: 'COMPLETED', mock: true };
   const cap = await api('POST', `/v2/checkout/orders/${orderId}/capture`, {});
   return { captureId: cap.purchase_units?.[0]?.payments?.captures?.[0]?.id, status: cap.status };

@@ -11,7 +11,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const ICONS = { flight: '✈️', hotel: '🏨', dinner: '🍽️', activity: '🎟️' };
 const STATUS_LABEL = {
   paid: 'Paid', pending_approval: 'Needs your OK', blocked: 'Blocked', no_option: 'Nothing fits',
-  declined: 'You declined', failed: 'Failed',
+  declined: 'You declined', failed: 'Failed', estop_on: 'Emergency stop', estop_off: 'Resumed',
 };
 const DECISION_CLASS = { paid: 'allow', pending_approval: 'approval' };
 
@@ -40,7 +40,32 @@ async function refreshStatus() {
   $('connect').textContent = s.walletConnected ? 'Reconnect' : 'Connect PayPal wallet';
   if (s.rulesText) $('rules').value = s.rulesText;
   renderRules(s.policy);
+  renderHalted(s);
 }
+
+// --- emergency stop ----------------------------------------------------------
+
+function renderHalted(s) {
+  $('haltedBanner').hidden = !s.halted;
+  $('estop').disabled = s.halted;
+  if (s.halted) {
+    const n = s.blockedSinceStop || 0;
+    $('haltedInfo').textContent = `${n} payment${n === 1 ? '' : 's'} blocked since you pressed stop. Every payment is refused before any rule runs.`;
+  }
+}
+
+async function setEstop(on) {
+  try {
+    const s = await api('/api/estop', { method: 'POST', body: JSON.stringify({ on }) });
+    renderHalted(s);
+    toast(on ? 'Emergency stop on: all payments halted' : 'Resumed: the agent pays within your rules again');
+    refreshAudit();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+$('estop').onclick = () => setEstop(true);
+$('resume').onclick = () => setEstop(false);
 
 // --- rules -------------------------------------------------------------------
 
@@ -130,6 +155,7 @@ $('run').onclick = async () => {
       await new Promise((r) => setTimeout(r, 450));
     }
     await refreshAudit();
+    refreshStatus();
   } catch (e) {
     tl.innerHTML = `<li class="empty">${esc(e.message)}</li>`;
   } finally {
@@ -139,7 +165,7 @@ $('run').onclick = async () => {
 
 // --- audit (AG Grid) ---------------------------------------------------------
 
-const DENY_STATUSES = ['blocked', 'no_option', 'declined', 'failed'];
+const DENY_STATUSES = ['blocked', 'no_option', 'declined', 'failed', 'estop_on'];
 const grid = agGrid.createGrid($('audit'), {
   rowData: [],
   getRowId: (p) => p.data.id,
@@ -147,7 +173,7 @@ const grid = agGrid.createGrid($('audit'), {
   tooltipShowDelay: 300,
   // Colour each row by the decision, so blocked attempts stand out at a glance.
   rowClassRules: {
-    'row-allow': (p) => p.data?.status === 'paid',
+    'row-allow': (p) => p.data?.status === 'paid' || p.data?.status === 'estop_off',
     'row-approval': (p) => p.data?.status === 'pending_approval',
     'row-deny': (p) => DENY_STATUSES.includes(p.data?.status),
   },
@@ -193,7 +219,7 @@ $('reset').onclick = async () => {
 const params = new URLSearchParams(location.search);
 const MESSAGES = {
   wallet: { connected: '✓ Wallet connected — the agent can now pay within your rules', cancelled: 'Wallet connection cancelled', error: 'Wallet connection failed' },
-  approval: { done: '✓ Approved and paid in PayPal', declined: 'You declined — nothing was charged', unknown: 'That approval link has expired' },
+  approval: { done: '✓ Approved and paid in PayPal', declined: 'You declined — nothing was charged', unknown: 'That approval link has expired', halted: 'Emergency stop is on: approval refused, nothing was charged' },
 };
 for (const [k, map] of Object.entries(MESSAGES)) if (map[params.get(k)]) toast(map[params.get(k)]);
 if (params.toString()) history.replaceState(null, '', '/');

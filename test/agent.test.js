@@ -108,3 +108,50 @@ test('another browser gets its own private session', async () => {
 test('garbage rules are rejected cleanly', async () => {
   assert.equal((await post('/api/policy', { text: '   ' })).status, 400);
 });
+
+// --- emergency stop -----------------------------------------------------------
+const paypalStats = (await import('../src/paypal.js')).stats;
+
+test('emergency stop denies an in-policy purchase and makes no PayPal call', async () => {
+  const on = await (await post('/api/estop', { on: true })).json();
+  assert.equal(on.halted, true);
+  assert.equal(mine().audit[0].status, 'estop_on');
+  const callsBefore = paypalStats.paymentCalls;
+  const { steps } = await (await post('/api/agent/run', { request: 'Luxury Lisbon trip' })).json();
+  assert.ok(steps.length > 0);
+  // Tasca do Bairro is inside every rule, yet the stop refuses it.
+  for (const s of steps) {
+    assert.equal(s.status, 'blocked');
+    assert.equal(s.reasons[0].source, 'Emergency stop');
+    assert.match(s.reasons[0].message, /Emergency stop is on/);
+    assert.equal(s.orderId, undefined);
+  }
+  assert.equal(paypalStats.paymentCalls, callsBefore);
+  const status = await (await get('/api/status')).json();
+  assert.equal(status.halted, true);
+  assert.equal(status.blockedSinceStop, steps.length);
+});
+
+test('approving an existing pending approval is refused while halted', async () => {
+  await post('/api/estop', { on: false });
+  const { steps } = await (await post('/api/agent/run', { request: 'Luxury Lisbon trip' })).json();
+  const pending = steps.find((s) => s.status === 'pending_approval');
+  assert.ok(pending);
+  await post('/api/estop', { on: true });
+  const callsBefore = paypalStats.paymentCalls;
+  const res = await fetch(`${base}/approve/return?token=${pending.orderId}`, { redirect: 'manual' });
+  assert.equal(res.status, 302);
+  assert.match(res.headers.get('location'), /approval=halted/);
+  const row = mine().audit.find((r) => r.id === pending.id);
+  assert.equal(row.status, 'pending_approval');
+  assert.equal(paypalStats.paymentCalls, callsBefore);
+});
+
+test('resume restores normal behaviour', async () => {
+  const off = await (await post('/api/estop', { on: false })).json();
+  assert.equal(off.halted, false);
+  assert.equal(mine().audit[0].status, 'estop_off');
+  const { steps } = await (await post('/api/agent/run', { request: 'Luxury Lisbon trip' })).json();
+  assert.equal(steps.find((s) => s.merchant === 'Tasca do Bairro')?.status, 'paid');
+  assert.ok(!steps.some((s) => s.reasons?.[0]?.source === 'Emergency stop'));
+});
