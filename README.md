@@ -73,7 +73,7 @@ Every attempt is a row: paid, held for you, or blocked. Rows are colour-coded by
 
 ## Try it
 
-**Live demo:** https://leash-dk04.onrender.com
+**Live demo:** https://leash-dk04.onrender.com · **Video (2:29):** https://youtu.be/VtfvYTvva6U
 
 > Free hosting: if the demo has been idle, the first load can take up to a minute while it wakes up. Each browser gets its own private demo session (a cookie), so your rules, wallet and audit log are visible only to you, even if other people are trying the demo at the same time.
 
