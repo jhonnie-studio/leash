@@ -12,7 +12,7 @@ The agent books your trip. When it reaches for the $240/night rooftop hotel, Lea
 
 ## Judges: 2-minute tour
 
-**Live:** https://leash-dk04.onrender.com · no install, no PayPal login, sandbox only. (First load after a quiet spell can take up to a minute.) The same steps are inside the app: open **Judges · 2-minute tour** at the top, or go to [`/#judges`](https://leash-dk04.onrender.com/#judges). Full version with what to look for: **[JUDGES.md](JUDGES.md)**.
+**Live:** https://leash-dk04.onrender.com · **Devpost:** [devpost.com/software/leash-ip9z4x](https://devpost.com/software/leash-ip9z4x) (several entries in this hackathon share the name Leash; this is the Lisbon travel-agent one by Naif) · no install, no PayPal login, sandbox only. (First load after a quiet spell can take up to a minute.) The same steps are inside the app: open **Judges · 2-minute tour** at the top, or go to [`/#judges`](https://leash-dk04.onrender.com/#judges). Full version with what to look for: **[JUDGES.md](JUDGES.md)**.
 
 1. **Open the site.** A shared PayPal sandbox wallet is already connected; your browser gets its own private session.
 2. **Rules.** Six example rules are pre-filled. Edit one or write your own, e.g. *"Don't let any hotel cost more than $150 a night."*, and press **Compile rules with Gemini**.

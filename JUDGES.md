@@ -2,6 +2,8 @@
 
 **Live demo:** https://leash-dk04.onrender.com (or https://leash-dk04.onrender.com/#judges to open the same tour inside the app)
 
+**Devpost:** https://devpost.com/software/leash-ip9z4x (other entries are also called Leash; this one is the Lisbon travel agent with Gemini-compiled rules)
+
 No install and no PayPal login needed. Everything runs in the **PayPal sandbox**: no real money moves.
 
 > Free hosting: if nobody has used the demo for a while, the first load can take up to a minute while Render wakes it up.
