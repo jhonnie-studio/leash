@@ -82,6 +82,13 @@ test('a 503 on the first OpenRouter model falls through to the lite model', asyn
   assert.deepEqual(calls, ['or:google/model-a', 'or:google/model-lite']);
 });
 
+test('a compile reply without a rules array falls back to the local parser instead of an empty policy', async () => {
+  respond([{ content: '{"oops":true}' }]);
+  const out = await compileRules('Ask me before anything over $300.');
+  assert.equal(out.compiledBy, 'local');
+  assert.equal(out.rules.length, 1);
+});
+
 test('a fenced JSON reply is parsed, and ranking goes through OpenRouter too', async () => {
   respond([{ content: '```json\n{"ranking":["b","a"],"why":{"b":"closer"}}\n```' }]);
   const out = await rankOptions('somewhere quiet', [

@@ -23,7 +23,8 @@ const QUOTA_COOLDOWN_MS = Number(process.env.GEMINI_QUOTA_COOLDOWN_MS) || 600000
 const PROVIDERS = [
   OPENROUTER_KEY && {
     via: 'openrouter',
-    models: list(process.env.OPENROUTER_MODEL || 'google/gemini-3.8-flash,google/gemini-3.5-flash-lite'),
+    // Flash-lite: ~1.5 s here. The 3.x flash models force reasoning and take 5-15 s, past the budget.
+    models: list(process.env.OPENROUTER_MODEL || 'google/gemini-3.5-flash-lite,google/gemini-2.5-flash-lite'),
     call: callOpenRouter,
   },
   GEMINI_KEY && {
@@ -169,7 +170,10 @@ export async function compileRules(rulesText) {
   if (geminiEnabled) {
     try {
       const { out, via } = await generateJson(COMPILE_PROMPT(rulesText));
-      return { ...out, compiledBy: 'gemini', via };
+      // Accept a bare array; anything without a rules list is a failed compile, not "no rules".
+      const rules = Array.isArray(out) ? out : out?.rules;
+      if (!Array.isArray(rules)) throw new Error(`${via}: reply had no rules array`);
+      return { rules, compiledBy: 'gemini', via };
     } catch (err) {
       console.warn('[gemini] compile failed, using local parser:', err.message);
     }
