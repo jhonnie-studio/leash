@@ -1,70 +1,137 @@
 // Gemini is used for two things: compiling natural-language rules into the
 // policy schema, and ranking travel options against the user's request.
-// Without GEMINI_API_KEY the module falls back to a small local parser so the
+// Gemini is reached via OpenRouter (OPENROUTER_API_KEY) or directly (GEMINI_API_KEY).
+// Without either key the module falls back to a small local parser so the
 // demo runs end to end offline.
 
 import { RULE_TYPES } from './policy.js';
 
-const API_KEY = process.env.GEMINI_API_KEY;
-// Comma-separated: models are tried in order, so a busy model (503) falls through to the next.
-const MODELS = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').split(',').map((m) => m.trim()).filter(Boolean);
+// Providers, tried in order: Gemini via OpenRouter (OPENROUTER_API_KEY), then Gemini direct
+// (GEMINI_API_KEY), then the local parser. Model lists are comma-separated, tried in order.
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const list = (v) => v.split(',').map((m) => m.trim()).filter(Boolean);
 // Each model gets one attempt with a short timeout, and the whole call has a hard budget,
-// so a struggling Gemini costs a judge a few seconds at most before the local fallback.
+// so a struggling provider costs a judge a few seconds at most before the next one.
 const TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 4000;
 const TOTAL_BUDGET_MS = Number(process.env.GEMINI_TOTAL_BUDGET_MS) || 5500;
-// After every model fails (5xx/timeout), skip Gemini for a while so the demo stays fast.
+// After every model of a provider fails (5xx/timeout), skip it for a while.
 const COOLDOWN_MS = Number(process.env.GEMINI_COOLDOWN_MS) || 60000;
-// A 429 / quota error will not clear in seconds: fall back at once and skip Gemini longer.
+// A 429 / quota / out-of-credit error will not clear in seconds: skip that provider longer.
 const QUOTA_COOLDOWN_MS = Number(process.env.GEMINI_QUOTA_COOLDOWN_MS) || 600000;
-let skipUntil = 0;
-let skipReason = null; // 'rate-limited' | 'unavailable'
 
-export const geminiEnabled = Boolean(API_KEY);
+const PROVIDERS = [
+  OPENROUTER_KEY && {
+    via: 'openrouter',
+    models: list(process.env.OPENROUTER_MODEL || 'google/gemini-3.8-flash,google/gemini-3.5-flash-lite'),
+    call: callOpenRouter,
+  },
+  GEMINI_KEY && {
+    via: 'gemini-api',
+    models: list(process.env.GEMINI_MODEL || 'gemini-3.8-flash'),
+    call: callGemini,
+  },
+]
+  .filter(Boolean)
+  .map((p) => ({ ...p, skipUntil: 0, skipReason: null })); // skipReason: 'rate-limited' | 'unavailable'
 
-/** Honest status for /api/status: 'live' only when Gemini is actually being used. */
+export const geminiEnabled = PROVIDERS.length > 0;
+
+/** Honest status for /api/status: 'live' only when a Gemini provider is actually usable. */
 export function geminiStatus() {
   if (!geminiEnabled) return { state: 'offline-fallback', note: 'local parser (no Gemini key)' };
-  if (Date.now() < skipUntil) {
-    return skipReason === 'rate-limited'
-      ? { state: 'fallback-rate-limited', note: 'fallback (Gemini rate-limited)' }
-      : { state: 'fallback-unavailable', note: 'fallback (Gemini unavailable)' };
-  }
-  return { state: 'live', note: 'Gemini live' };
+  const now = Date.now();
+  const usable = PROVIDERS.find((p) => now >= p.skipUntil);
+  if (usable) return { state: 'live', note: `Gemini live (${usable.via})`, via: usable.via };
+  return PROVIDERS.some((p) => p.skipReason === 'rate-limited')
+    ? { state: 'fallback-rate-limited', note: 'fallback (Gemini rate-limited)' }
+    : { state: 'fallback-unavailable', note: 'fallback (Gemini unavailable)' };
 }
 
-const isQuotaError = (err) => err.status === 429 || /exceeded your current quota|RESOURCE_EXHAUSTED/i.test(err.message);
+const isQuotaError = (err) =>
+  err.status === 429 || err.status === 402 || /exceeded your current quota|RESOURCE_EXHAUSTED|insufficient credits/i.test(err.message);
 
-function coolDown(ms, reason, errors) {
-  skipUntil = Date.now() + ms;
-  skipReason = reason;
-  return new Error(errors.join(' | '));
-}
-
+/** Returns { out, via }. Throws when no provider answered inside the budget. */
 async function generateJson(prompt) {
-  if (Date.now() < skipUntil) throw new Error(`Gemini cooling down (${skipReason})`);
   const errors = [];
   const deadline = Date.now() + TOTAL_BUDGET_MS;
-  for (const model of MODELS) {
-    const remaining = deadline - Date.now();
-    if (remaining < 250) {
-      errors.push(`${model}: skipped, time budget used`);
-      break;
+  for (const p of PROVIDERS) {
+    if (Date.now() < p.skipUntil) {
+      errors.push(`${p.via}: cooling down (${p.skipReason})`);
+      continue;
     }
-    try {
-      return await callModel(model, prompt, Math.min(TIMEOUT_MS, remaining));
-    } catch (err) {
-      errors.push(`${model}: ${err.message}`);
-      if (isQuotaError(err)) throw coolDown(QUOTA_COOLDOWN_MS, 'rate-limited', errors);
+    let tried = false;
+    let quota = false;
+    for (const model of p.models) {
+      const remaining = deadline - Date.now();
+      if (remaining < 250) {
+        errors.push(`${p.via}/${model}: skipped, time budget used`);
+        break;
+      }
+      tried = true;
+      try {
+        return { out: await p.call(model, prompt, Math.min(TIMEOUT_MS, remaining)), via: p.via };
+      } catch (err) {
+        errors.push(`${p.via}/${model}: ${err.message}`);
+        if (isQuotaError(err)) {
+          quota = true;
+          break;
+        }
+      }
+    }
+    if (quota) {
+      p.skipUntil = Date.now() + QUOTA_COOLDOWN_MS;
+      p.skipReason = 'rate-limited';
+    } else if (tried) {
+      p.skipUntil = Date.now() + COOLDOWN_MS;
+      p.skipReason = 'unavailable';
     }
   }
-  throw coolDown(COOLDOWN_MS, 'unavailable', errors);
+  throw new Error(errors.join(' | '));
 }
 
-async function callModel(model, prompt, timeoutMs) {
+async function fail(res, label) {
+  const err = new Error(`${label} ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  err.status = res.status;
+  return err;
+}
+
+// Models sometimes wrap JSON in a ```json fence even in JSON mode.
+const parseJson = (text) => JSON.parse(String(text).trim().replace(/^```(?:json)?\s*|\s*```$/g, ''));
+
+async function callOpenRouter(model, prompt, timeoutMs) {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENROUTER_KEY}`,
+      'HTTP-Referer': 'https://leash-dk04.onrender.com',
+      'X-Title': 'Leash',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+      temperature: 0,
+    }),
+    // A hung call must not hang the demo; callers fall back to the next provider / local logic.
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) throw await fail(res, 'OpenRouter');
+  const data = await res.json();
+  if (data.error) {
+    const err = new Error(`OpenRouter error: ${JSON.stringify(data.error).slice(0, 300)}`);
+    err.status = Number(data.error.code) || undefined;
+    throw err;
+  }
+  return parseJson(data.choices?.[0]?.message?.content);
+}
+
+async function callGemini(model, prompt, timeoutMs) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const res = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: 'application/json', temperature: 0 },
@@ -74,14 +141,9 @@ async function callModel(model, prompt, timeoutMs) {
     // A hung Gemini call must not hang the demo; callers fall back to local logic.
     signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!res.ok) {
-    const err = new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    err.status = res.status;
-    throw err;
-  }
+  if (!res.ok) throw await fail(res, 'Gemini');
   const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  return JSON.parse(text);
+  return parseJson(data.candidates?.[0]?.content?.parts?.[0]?.text);
 }
 
 const COMPILE_PROMPT = (rulesText) => `You convert a traveller's spending rules for their AI booking agent into JSON.
@@ -106,7 +168,8 @@ RULES>>>`;
 export async function compileRules(rulesText) {
   if (geminiEnabled) {
     try {
-      return { ...(await generateJson(COMPILE_PROMPT(rulesText))), compiledBy: 'gemini' };
+      const { out, via } = await generateJson(COMPILE_PROMPT(rulesText));
+      return { ...out, compiledBy: 'gemini', via };
     } catch (err) {
       console.warn('[gemini] compile failed, using local parser:', err.message);
     }
@@ -123,7 +186,7 @@ Options: ${JSON.stringify(options)}`;
 export async function rankOptions(request, options) {
   if (geminiEnabled) {
     try {
-      const out = await generateJson(RANK_PROMPT(request, options));
+      const { out } = await generateJson(RANK_PROMPT(request, options));
       const known = new Set(options.map((o) => o.id));
       const ranking = (out.ranking || []).filter((id) => known.has(id));
       for (const o of options) if (!ranking.includes(o.id)) ranking.push(o.id);

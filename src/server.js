@@ -112,6 +112,7 @@ app.get('/api/status', (req, res) => {
   res.json({
     gemini: g.state,
     geminiNote: g.note,
+    ...(g.via && { geminiVia: g.via }),
     paypal: paypal.paypalEnabled ? 'sandbox' : 'mock',
     walletConnected: Boolean(state.wallet),
     walletPreloaded: Boolean(state.wallet?.preloaded),
@@ -134,7 +135,7 @@ app.post('/api/policy', async (req, res) => {
     const compiled = sanitizePolicy(raw);
     state.policy = compiled;
     state.rulesText = text;
-    res.json({ ...compiled, compiledBy: raw.compiledBy });
+    res.json({ ...compiled, compiledBy: raw.compiledBy, ...(raw.via && { via: raw.via }) });
   } catch (err) {
     console.error(err);
     res.status(502).json({ error: 'Could not compile rules. Try rephrasing.' });
@@ -292,6 +293,6 @@ export { app, sessions };
 // Start listening only when run directly (tests import the app instead).
 if (import.meta.url === `file://${process.argv[1]}`) {
   app.listen(PORT, () => {
-    console.log(`Leash on ${PUBLIC_URL} — Gemini: ${geminiEnabled ? 'live' : 'offline fallback'}, PayPal: ${paypal.paypalEnabled ? 'sandbox' : 'mock'}`);
+    console.log(`Leash on ${PUBLIC_URL} — Gemini: ${geminiEnabled ? `live (${geminiStatus().via})` : 'offline fallback'}, PayPal: ${paypal.paypalEnabled ? 'sandbox' : 'mock'}`);
   });
 }
