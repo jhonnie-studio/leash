@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { evaluate, sanitizePolicy } from './policy.js';
-import { compileRules, rankOptions, geminiEnabled } from './gemini.js';
+import { compileRules, rankOptions, geminiEnabled, geminiStatus } from './gemini.js';
 import { TRIPS, toPurchase } from './inventory.js';
 import * as paypal from './paypal.js';
 
@@ -108,8 +108,10 @@ const log = (state, entry) => {
 
 app.get('/api/status', (req, res) => {
   const state = req.session;
+  const g = geminiStatus();
   res.json({
-    gemini: geminiEnabled ? 'live' : 'offline-fallback',
+    gemini: g.state,
+    geminiNote: g.note,
     paypal: paypal.paypalEnabled ? 'sandbox' : 'mock',
     walletConnected: Boolean(state.wallet),
     walletPreloaded: Boolean(state.wallet?.preloaded),

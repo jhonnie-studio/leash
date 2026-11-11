@@ -8,39 +8,59 @@ import { RULE_TYPES } from './policy.js';
 const API_KEY = process.env.GEMINI_API_KEY;
 // Comma-separated: models are tried in order, so a busy model (503) falls through to the next.
 const MODELS = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').split(',').map((m) => m.trim()).filter(Boolean);
-const TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 8000;
-// After every model fails, skip Gemini for a while so the demo stays fast on the local fallback.
+// Each model gets one attempt with a short timeout, and the whole call has a hard budget,
+// so a struggling Gemini costs a judge a few seconds at most before the local fallback.
+const TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 4000;
+const TOTAL_BUDGET_MS = Number(process.env.GEMINI_TOTAL_BUDGET_MS) || 5500;
+// After every model fails (5xx/timeout), skip Gemini for a while so the demo stays fast.
 const COOLDOWN_MS = Number(process.env.GEMINI_COOLDOWN_MS) || 60000;
-// A fast 429/5xx ("model is overloaded") is usually gone a second later, so each model gets
-// one quick retry, but only while the whole call is still inside this budget.
-const RETRY_DELAY_MS = Number(process.env.GEMINI_RETRY_DELAY_MS ?? 1000);
-const RETRY_BUDGET_MS = Number(process.env.GEMINI_RETRY_BUDGET_MS) || 6000;
-const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+// A 429 / quota error will not clear in seconds: fall back at once and skip Gemini longer.
+const QUOTA_COOLDOWN_MS = Number(process.env.GEMINI_QUOTA_COOLDOWN_MS) || 600000;
 let skipUntil = 0;
+let skipReason = null; // 'rate-limited' | 'unavailable'
 
 export const geminiEnabled = Boolean(API_KEY);
 
-async function generateJson(prompt) {
-  if (Date.now() < skipUntil) throw new Error('Gemini cooling down after recent failures');
-  const errors = [];
-  const started = Date.now();
-  for (const model of MODELS) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        return await callModel(model, prompt);
-      } catch (err) {
-        errors.push(`${model}: ${err.message}`);
-        const retry = attempt === 0 && RETRYABLE.has(err.status) && Date.now() - started < RETRY_BUDGET_MS;
-        if (!retry) break;
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-      }
-    }
+/** Honest status for /api/status: 'live' only when Gemini is actually being used. */
+export function geminiStatus() {
+  if (!geminiEnabled) return { state: 'offline-fallback', note: 'local parser (no Gemini key)' };
+  if (Date.now() < skipUntil) {
+    return skipReason === 'rate-limited'
+      ? { state: 'fallback-rate-limited', note: 'fallback (Gemini rate-limited)' }
+      : { state: 'fallback-unavailable', note: 'fallback (Gemini unavailable)' };
   }
-  skipUntil = Date.now() + COOLDOWN_MS;
-  throw new Error(errors.join(' | '));
+  return { state: 'live', note: 'Gemini live' };
 }
 
-async function callModel(model, prompt) {
+const isQuotaError = (err) => err.status === 429 || /exceeded your current quota|RESOURCE_EXHAUSTED/i.test(err.message);
+
+function coolDown(ms, reason, errors) {
+  skipUntil = Date.now() + ms;
+  skipReason = reason;
+  return new Error(errors.join(' | '));
+}
+
+async function generateJson(prompt) {
+  if (Date.now() < skipUntil) throw new Error(`Gemini cooling down (${skipReason})`);
+  const errors = [];
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
+  for (const model of MODELS) {
+    const remaining = deadline - Date.now();
+    if (remaining < 250) {
+      errors.push(`${model}: skipped, time budget used`);
+      break;
+    }
+    try {
+      return await callModel(model, prompt, Math.min(TIMEOUT_MS, remaining));
+    } catch (err) {
+      errors.push(`${model}: ${err.message}`);
+      if (isQuotaError(err)) throw coolDown(QUOTA_COOLDOWN_MS, 'rate-limited', errors);
+    }
+  }
+  throw coolDown(COOLDOWN_MS, 'unavailable', errors);
+}
+
+async function callModel(model, prompt, timeoutMs) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -52,7 +72,7 @@ async function callModel(model, prompt) {
       store: false,
     }),
     // A hung Gemini call must not hang the demo; callers fall back to local logic.
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
     const err = new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
